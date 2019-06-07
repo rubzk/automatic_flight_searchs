@@ -2,6 +2,7 @@ import os
 import pandas
 import selenium
 import time
+import sqlite3
 
 import requests
 import lxml.html as lh
@@ -81,7 +82,7 @@ def wait_presence_of_element_by_xpath(driver,element_xpath):
   element = wait.until(EC.element_to_be_clickable((By.XPATH,element_xpath)))  
 
 
-def get_flights_tables(url):
+def get_flights_tables(url,destino):
   page = requests.get(url)
   doc = lh.fromstring(page.content)
   tr_elements = doc.xpath('//tr')
@@ -102,6 +103,7 @@ def get_flights_tables(url):
     i = 0
 
     for t in T.iterchildren():
+
       data=t.text_content()
       if i >0:
         try:
@@ -114,21 +116,31 @@ def get_flights_tables(url):
   dict = {title: column for (title,column) in col}
   df=pd.DataFrame(dict)
   df.columns = ['IDA','VUELTA','ESTADIA','DURACION','ESCALAS','AEROLINEAS','PRECIO']
-  df['IDA'] = df['IDA'].map(lambda x: x.lstrip('Lun.MarMiÃ©JuevVieDomSÃ¡b.')) ## Funciona
+  df['IDA'] = df['IDA'].map(lambda x: x.lstrip('Lun.MarMiÃ©JuevVieDomSÃ¡b.')) ## Elimino caracteres no deseados
   df['VUELTA'] = df['VUELTA'].map(lambda x: x.lstrip('Lun.MarMiÃ©JuevVieDomSÃ¡b.'))
   df['ESTADIA']=df['ESTADIA'].str.rstrip('dias')
   df['PRECIO']=df['PRECIO'].str.lstrip('$')
+  df = df.assign(DESTINY=[destino]*(len(df.index)))
 
-  #df['PRECIO'] = df['PRECIO'].replace('$','',inplace=True)
 
-  #df['IDA'] = pd.to_datetime(df['IDA'])
+
   
-  print (df)
 
   return df
 
 def save_file(filename,datos):
   datos.to_excel(os.environ['USERPROFILE'] + '\\Desktop\\'+filename+".xlsx",header=True, index=False)
+
+
+
+def create_connection(db_file):
+    """ create a database connection to a SQLite database """
+    try:
+        conn = sqlite3.connect(db_file)
+        print(sqlite3.version)
+    except Error as e:
+        print(e)
+    return conn 
 
 if __name__ == '__main__':
   driver = define_driver(CHROMEDRIVER_LOCATION)
@@ -142,9 +154,15 @@ if __name__ == '__main__':
   click_element_by_xpath(driver, SEARCH_BUTTON)
   wait_presence_of_element_by_xpath(driver, LOG_IN_AD)
   click_element_by_xpath(driver, LOG_IN_AD)
+  conn = create_connection('C:\\Users\\tertola\\Desktop\\Codigos\\Buscador de vuelos AUtomatico\\flights.db')
   url = driver.current_url
-  df = get_flights_tables(url)
-  save_file('Prueba',df)
+  df = get_flights_tables(url,destination)
+  df.to_sql(name='flights', con=conn, if_exists='append', index=False)
+  p2 = pd.read_sql('select * from flights', conn)
+  print(p2)
+  #save_file('Prueba',df)
+  
+
 
   #print([len(T) for T in tr_elements[:5]])
 
