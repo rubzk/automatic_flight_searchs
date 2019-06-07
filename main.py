@@ -81,6 +81,55 @@ def wait_presence_of_element_by_xpath(driver,element_xpath):
   element = wait.until(EC.element_to_be_clickable((By.XPATH,element_xpath)))  
 
 
+def get_flights_tables(url):
+  page = requests.get(url)
+  doc = lh.fromstring(page.content)
+  tr_elements = doc.xpath('//tr')
+  file = []
+  col=[]
+  i=0
+  #For each row, store each first element (header) and an empty list
+  for t in tr_elements[0]:
+    i+=1
+    name=t.text_content()
+    #rint (i,name)
+    col.append((name,[]))
+
+  for j in range (1,len(tr_elements)):
+    T = tr_elements[j]
+    if len(T) != 7:
+      break
+    i = 0
+
+    for t in T.iterchildren():
+      data=t.text_content()
+      if i >0:
+        try:
+          data=int(data)
+        except:
+          pass
+      col[i][1].append(data)
+      i+=1
+
+  dict = {title: column for (title,column) in col}
+  df=pd.DataFrame(dict)
+  df.columns = ['IDA','VUELTA','ESTADIA','DURACION','ESCALAS','AEROLINEAS','PRECIO']
+  df['IDA'] = df['IDA'].map(lambda x: x.lstrip('Lun.MarMiÃ©JuevVieDomSÃ¡b.')) ## Funciona
+  df['VUELTA'] = df['VUELTA'].map(lambda x: x.lstrip('Lun.MarMiÃ©JuevVieDomSÃ¡b.'))
+  df['ESTADIA']=df['ESTADIA'].str.rstrip('dias')
+  df['PRECIO']=df['PRECIO'].str.lstrip('$')
+
+  #df['PRECIO'] = df['PRECIO'].replace('$','',inplace=True)
+
+  #df['IDA'] = pd.to_datetime(df['IDA'])
+  
+  print (df)
+
+  return df
+
+def save_file(filename,datos):
+  datos.to_excel(os.environ['USERPROFILE'] + '\\Desktop\\'+filename+".xlsx",header=True, index=False)
+
 if __name__ == '__main__':
   driver = define_driver(CHROMEDRIVER_LOCATION)
   open_webpage(driver,turismocity)
@@ -94,18 +143,12 @@ if __name__ == '__main__':
   wait_presence_of_element_by_xpath(driver, LOG_IN_AD)
   click_element_by_xpath(driver, LOG_IN_AD)
   url = driver.current_url
-  page = requests.get(url)
-  doc = lh.fromstring(page.content)
-  tr_elements = doc.xpath('//tr')
-  #Create empty list
-  col=[]
-  i=0
-  #For each row, store each first element (header) and an empty list
-  for t in tr_elements[0]:
-    i+=1
-    name=t.text_content()
-    print (i,name)
-    col.append((name,[]))
+  df = get_flights_tables(url)
+  save_file('Prueba',df)
+
+  #print([len(T) for T in tr_elements[:5]])
+
+
 
 
 
