@@ -3,6 +3,7 @@ import pandas
 import selenium
 import time
 import sqlite3
+from datetime import datetime
 
 import requests
 import lxml.html as lh
@@ -25,8 +26,8 @@ INPUT_TEXT_FROM_CITY = '//*[@id="flights-tab-container"]/form/div[2]/div/div[2]/
 CLICK_INPUT_DESTINATION_CITY = '//*[@id="flights-tab-container"]/form/div[2]/div/div[3]/div/div/div/span/span'
 INPUT_TEXT_DESTINATION_CITY = '//*[@id="flights-tab-container"]/form/div[2]/div/div[3]/div/div/span/span/span[1]/input'
 
-destination = 'Rio de Janeiro, Brasil'
-
+destination = ['Rio de Janeiro, Brasil','Madrid','New York','Los Angeles','Tokyo','Amsterdam',  ## Seteo destinos que quiero que el scraper busque
+                'Paris']
 
 ##-----------I did'nt decide the date yet button------------##
 
@@ -66,7 +67,7 @@ def send_keys_by_xpath(driver,element_xpath,keys_to_send):
 
 def click_element_by_xpath(driver,element_xpath):
   from selenium import webdriver
-  element = driver.find_element_by_xpath(element_xpath) 
+  element = driver.find_element_by_xpath(element_xpath)
   element.click()
 
 def click_element_by_selector(driver, element_selector):
@@ -79,7 +80,7 @@ def wait_presence_of_element_by_xpath(driver,element_xpath):
   from selenium.webdriver.support.ui import WebDriverWait
   from selenium.webdriver.common.by import By
   wait = WebDriverWait(driver, 100)
-  element = wait.until(EC.element_to_be_clickable((By.XPATH,element_xpath)))  
+  element = wait.until(EC.element_to_be_clickable((By.XPATH,element_xpath)))
 
 
 def get_flights_tables(url,destino):
@@ -93,7 +94,6 @@ def get_flights_tables(url,destino):
   for t in tr_elements[0]:
     i+=1
     name=t.text_content()
-    #rint (i,name)
     col.append((name,[]))
 
   for j in range (1,len(tr_elements)):
@@ -113,6 +113,7 @@ def get_flights_tables(url,destino):
       col[i][1].append(data)
       i+=1
 
+
   dict = {title: column for (title,column) in col}
   df=pd.DataFrame(dict)
   df.columns = ['IDA','VUELTA','ESTADIA','DURACION','ESCALAS','AEROLINEAS','PRECIO']
@@ -121,10 +122,8 @@ def get_flights_tables(url,destino):
   df['ESTADIA']=df['ESTADIA'].str.rstrip('dias')
   df['PRECIO']=df['PRECIO'].str.lstrip('$')
   df = df.assign(DESTINY=[destino]*(len(df.index)))
+  df = df.assign(SEARCH_DATE=[datetime.today().strftime('%Y-%m-%d')]*(len(df.index)))
 
-
-
-  
 
   return df
 
@@ -135,38 +134,36 @@ def save_file(filename,datos):
 
 def create_connection(db_file):
     """ create a database connection to a SQLite database """
-    try:
-        conn = sqlite3.connect(db_file)
-        print(sqlite3.version)
-    except Error as e:
-        print(e)
-    return conn 
+
+    conn = sqlite3.connect(db_file)
+    print(sqlite3.version)
+
+
+    return conn
+
+
 
 if __name__ == '__main__':
-  driver = define_driver(CHROMEDRIVER_LOCATION)
-  open_webpage(driver,turismocity)
-  click_element_by_xpath(driver,CLICK_INPUT_ORIGIN_CITY)
-  send_keys_by_xpath(driver,INPUT_TEXT_FROM_CITY,'Buenos Aires, Argentina')
-  click_element_by_xpath(driver,CLICK_INPUT_DESTINATION_CITY)
-  send_keys_by_xpath(driver,INPUT_TEXT_DESTINATION_CITY,destination)
-  wait_presence_of_element_by_xpath(driver, DATE_NOT_DECIDED_YET)
-  click_element_by_xpath(driver, DATE_NOT_DECIDED_YET)
-  click_element_by_xpath(driver, SEARCH_BUTTON)
-  wait_presence_of_element_by_xpath(driver, LOG_IN_AD)
-  click_element_by_xpath(driver, LOG_IN_AD)
-  conn = create_connection('C:\\Users\\tertola\\Desktop\\Codigos\\Buscador de vuelos AUtomatico\\flights.db')
-  url = driver.current_url
-  df = get_flights_tables(url,destination)
-  df.to_sql(name='flights', con=conn, if_exists='append', index=False)
-  p2 = pd.read_sql('select * from flights', conn)
-  print(p2)
-  #save_file('Prueba',df)
-  
+
+  for destinos in destination:
+        driver = define_driver(CHROMEDRIVER_LOCATION)
+        open_webpage(driver,turismocity)
+        click_element_by_xpath(driver,CLICK_INPUT_ORIGIN_CITY)
+        wait_presence_of_element_by_xpath(driver, INPUT_TEXT_FROM_CITY )
+        send_keys_by_xpath(driver,INPUT_TEXT_FROM_CITY,'Buenos Aires, Argentina')
+        click_element_by_xpath(driver,CLICK_INPUT_DESTINATION_CITY)
+        send_keys_by_xpath(driver,INPUT_TEXT_DESTINATION_CITY,destinos)
+        wait_presence_of_element_by_xpath(driver, DATE_NOT_DECIDED_YET)
+        click_element_by_xpath(driver, DATE_NOT_DECIDED_YET)
+        click_element_by_xpath(driver, SEARCH_BUTTON)
+        wait_presence_of_element_by_xpath(driver, LOG_IN_AD)
+        click_element_by_xpath(driver, LOG_IN_AD)
+        conn = create_connection('C:\\Users\\rubio-pc\\Desktop\\db\\flights.db')
+        url = driver.current_url
+        df = get_flights_tables(url,destinos)
+        df.to_sql(name='flights', con=conn, if_exists='append', index=False)
+        driver.close()
+        p2 = pd.read_sql('select * from flights', conn)
 
 
-  #print([len(T) for T in tr_elements[:5]])
-
-
-
-
-
+        print(p2)
