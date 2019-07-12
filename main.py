@@ -13,7 +13,6 @@ import pandas as pd
 ##-----------Web Page and ChromeDriver Path-------------##
 
 turismocity = 'https://www.turismocity.com.ar/'
-CHROMEDRIVER_LOCATION="C:\\Users\\tertola\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.7\\chromedriver.exe"
 
 
 ##------------Select the Origin City input box-----------##
@@ -145,8 +144,11 @@ def create_connection(db_file):
 
 if __name__ == '__main__':
 
+
+
   for destinos in destination:
-        driver = define_driver(CHROMEDRIVER_LOCATION)
+        chromedriver_location = os.environ.get('ChromeDriverLocation')
+        driver = define_driver(chromedriver_location)
         open_webpage(driver,turismocity)
         click_element_by_xpath(driver,CLICK_INPUT_ORIGIN_CITY)
         wait_presence_of_element_by_xpath(driver, INPUT_TEXT_FROM_CITY )
@@ -158,12 +160,11 @@ if __name__ == '__main__':
         click_element_by_xpath(driver, SEARCH_BUTTON)
         wait_presence_of_element_by_xpath(driver, LOG_IN_AD)
         click_element_by_xpath(driver, LOG_IN_AD)
-        conn = create_connection('C:\\Users\\rubio-pc\\Desktop\\db\\flights.db')
+        conn = create_connection(os.environ.get("DB_Connection"))
         url = driver.current_url
         df = get_flights_tables(url,destinos)
         df.to_sql(name='flights', con=conn, if_exists='append', index=False)
         driver.close()
-        p2 = pd.read_sql('select * from flights', conn)
-
-
-        print(p2)
+  p2 = pd.read_sql('select  * FROM flights ORDER BY PRECIO, DESTINY ASC LIMIT 10', conn)
+  p2.to_sql(name='daily_f', con=conn, if_exists='replace', index=False)
+  print(p2)
